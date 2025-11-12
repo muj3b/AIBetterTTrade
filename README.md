@@ -41,8 +41,7 @@ crontab -e
 
 Add this line:
 ```
-# Cron format: minute - hour - day of month - month - day of week
- 0 0 * * * cd /home/ubuntu/AITradingBot && bash batch_runner.sh >> cron.log 2>&1
+0 0 * * * cd /home/ubuntu/AITradingBot && bash batch_runner.sh >> cron.log 2>&1
 ```
 
 ---
@@ -63,6 +62,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## ⚠️ Disclaimer
 
 All this material and related videos are for educational and entertainment purposes only. It is not financial advice nor an endorsement of any provider, product or service. The user bears sole responsibility for any actions taken based on this information, and Robot Traders and its affiliates will not be held liable for any losses or damages resulting from its use.
+
 
 
 
