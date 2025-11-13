@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 from datetime import datetime, timezone
+from typing import Literal, Optional
 
 
 def get_timestamp() -> str:
@@ -154,3 +155,76 @@ def open_position(
         logging.info("Stop-loss not supported for this exchange (forward testing mode)")
 
     return order_response
+
+
+def normalize_position_side(raw_side: Optional[str]) -> Optional[str]:
+    """Map exchange-specific side labels to 'buy'/'sell' used internally."""
+    if not raw_side:
+        return None
+    side = raw_side.strip().upper()
+    mapping = {
+        "BUY": "buy",
+        "BID": "buy",
+        "LONG": "buy",
+        "SELL": "sell",
+        "ASK": "sell",
+        "SHORT": "sell",
+    }
+    for key, value in mapping.items():
+        if side.startswith(key):
+            return value
+    logging.warning(f"Unrecognized position side '{raw_side}', treating as None")
+    return None
+
+
+def combine_signals(
+        ai_signal: str,
+        technical_signal: Optional[str],
+        technical_confidence: Optional[float]
+) -> Literal["Bullish", "Bearish", "Neutral"]:
+    """
+    Blend AI and deterministic signals.
+
+    The AI remains the primary driver, but high-confidence technical checks
+    can break ties or neuter conflicting bets.
+    """
+    normalized_ai = _normalize_signal(ai_signal)
+    normalized_tech = _normalize_signal(technical_signal) if technical_signal else None
+
+    if not normalized_tech or technical_confidence is None:
+        return normalized_ai
+
+    if normalized_ai == normalized_tech:
+        return normalized_ai
+
+    if normalized_ai == "Neutral" and technical_confidence >= 0.55:
+        logging.info(
+            "AI neutral but guardrail %.0f%% confident in %s, following guardrail",
+            technical_confidence * 100,
+            normalized_tech
+        )
+        return normalized_tech
+
+    if normalized_tech == "Neutral":
+        return normalized_ai
+
+    if technical_confidence >= 0.75:
+        logging.info(
+            "Signal disagreement (AI %s vs technical %s %.0f%%) -> flattening to Neutral",
+            normalized_ai,
+            normalized_tech,
+            technical_confidence * 100
+        )
+        return "Neutral"
+
+    return normalized_ai
+
+
+def _normalize_signal(signal: Optional[str]) -> Literal["Bullish", "Bearish", "Neutral"]:
+    if not signal:
+        return "Neutral"
+    cleaned = signal.strip().capitalize()
+    if cleaned not in {"Bullish", "Bearish", "Neutral"}:
+        logging.warning("Unexpected signal '%s', defaulting to Neutral", signal)
+        return "Neutral"
+    return cleaned
